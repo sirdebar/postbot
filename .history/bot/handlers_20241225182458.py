@@ -18,6 +18,7 @@ storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
 def setup_handlers(dp: Dispatcher):
+    dp.message.middleware(FSMContextMiddleware(storage=dp.storage))
     dp.callback_query.register(search_handler, lambda c: c.data.startswith("search:"))
     dp.message.register(number_search_handler, SearchStates.waiting_for_number)
     dp.message.register(add_number_handler, Command(commands=["a"]))
@@ -69,29 +70,21 @@ async def paginate_list(callback: CallbackQuery):
     await callback.message.edit_text(response, reply_markup=keyboard, parse_mode="Markdown")
 
 async def number_search_handler(message: Message, state: FSMContext):
-    """
-    Обрабатывает ввод пользователя для поиска номера.
-    """
     number = message.text.strip()
     record = await find_record_by_number(number)
     if record:
-        response = (
-            f"Найден номер:\n"
-            f"ID: {record[0]}\n"
-            f"Номер: {record[1]}\n"
-            f"Пользователь: @{record[2]}\n"
-            f"Статус: {record[3]}\n"
-            f"Дата: {record[4]}"
-        )
+        response = f"Найден номер:\n" \
+                   f"ID: {record[0]}\n" \
+                   f"Номер: {record[1]}\n" \
+                   f"Пользователь: @{record[2]}\n" \
+                   f"Статус: {record[3]}\n" \
+                   f"Дата: {record[4]}"
     else:
         response = f"Номер {number} не найден."
     await message.reply(response)
     await state.clear()
 
 async def search_handler(callback: CallbackQuery, state: FSMContext):
-    """
-    Обрабатывает нажатие кнопки "Найти".
-    """
     await callback.message.reply("Введите номер для поиска:")
     await state.set_state(SearchStates.waiting_for_number)
 

@@ -18,6 +18,7 @@ storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
 def setup_handlers(dp: Dispatcher):
+    dp.message.middleware(FSMContextMiddleware(storage=dp.storage))
     dp.callback_query.register(search_handler, lambda c: c.data.startswith("search:"))
     dp.message.register(number_search_handler, SearchStates.waiting_for_number)
     dp.message.register(add_number_handler, Command(commands=["a"]))

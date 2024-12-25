@@ -18,6 +18,15 @@ async def init_db():
         """)
         await db.commit()
 
+async def delete_expired_records():
+    """
+    Удаляет записи старше 24 часов.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        expiration_time = datetime.now() - timedelta(days=1)
+        await db.execute("DELETE FROM numbers WHERE timestamp < ?", (expiration_time,))
+        await db.commit()
+
 async def count_records(status=None):
     """
     Возвращает количество записей (всех или по статусу).
@@ -30,7 +39,7 @@ async def count_records(status=None):
             async with db.execute("SELECT COUNT(*) FROM numbers") as cursor:
                 return (await cursor.fetchone())[0]
 
-async def get_all_records(limit=20, offset=0):
+async def get_all_records(limit=10, offset=0):
     """
     Получает все записи вне зависимости от статуса.
     """
@@ -42,6 +51,18 @@ async def get_all_records(limit=20, offset=0):
         LIMIT ? OFFSET ?
         """, (limit, offset)) as cursor:
             return await cursor.fetchall()
+
+async def find_record_by_number(number):
+    """
+    Ищет запись по номеру.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("""
+        SELECT id, number, user, status, timestamp
+        FROM numbers
+        WHERE number = ?
+        """, (number,)) as cursor:
+            return await cursor.fetchone()
 
 async def add_to_waiting(user, number):
     """
@@ -130,3 +151,4 @@ async def clear_all():
         await db.execute("DELETE FROM numbers")
         await db.commit()
         return "Все списки очищены."
+
