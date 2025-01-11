@@ -24,25 +24,17 @@ storage = RedisStorage(redis)
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=storage)
 
-async def periodic_cleanup():
-    while True:
-        try:
-            await delete_expired_records()
-            logger.info("Cleanup of expired records completed.")
-        except Exception as e:
-            logger.error(f"Database cleanup error: {e}")
-        await asyncio.sleep(3600)
-
 async def main():
     await init_db()
 
     # Start background task for periodic cleanup
-    asyncio.create_task(periodic_cleanup())
+    asyncio.create_task(delete_expired_records())
 
     setup_handlers(dp, redis)
 
     logger.info("Bot started!")
     await dp.start_polling(bot)
+
 async def delete_expired_records():
     while True:
         try:

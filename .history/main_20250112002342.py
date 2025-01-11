@@ -7,11 +7,9 @@ from redis.asyncio import Redis
 import os
 from dotenv import load_dotenv
 import logging
+im
 
 load_dotenv()
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 TOKEN = os.getenv("BOT_TOKEN")
 REDIS_URL = f"redis://{os.getenv('REDIS_HOST')}:{os.getenv('REDIS_PORT')}"
@@ -24,29 +22,21 @@ storage = RedisStorage(redis)
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=storage)
 
-async def periodic_cleanup():
-    while True:
-        try:
-            await delete_expired_records()
-            logger.info("Cleanup of expired records completed.")
-        except Exception as e:
-            logger.error(f"Database cleanup error: {e}")
-        await asyncio.sleep(3600)
-
 async def main():
     await init_db()
 
     # Start background task for periodic cleanup
-    asyncio.create_task(periodic_cleanup())
+    asyncio.create_task(delete_expired_records())
 
-    setup_handlers(dp, redis)
+    setup_handlers(dp, redis)  # Passing dp and redis to setup_handlers
 
     logger.info("Bot started!")
     await dp.start_polling(bot)
+
 async def delete_expired_records():
     while True:
         try:
-            await delete_expired_records()
+            await init_db.delete_expired_records()
             logger.info("Cleanup of expired records completed.")
         except Exception as e:
             logger.error(f"Database cleanup error: {e}")

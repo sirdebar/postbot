@@ -32,4 +32,3 @@ def format_list(records, title, current_page, total_pages):
         for i, record in enumerate(records)
     ])
     return header + body
-

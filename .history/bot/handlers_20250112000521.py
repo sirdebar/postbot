@@ -4,12 +4,12 @@ from aiogram.filters import Command, CommandObject, ChatMemberUpdatedFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from bot.utils import build_pagination_keyboard, format_list
+from aiogram.filters import BaseFilter
 from bot.database import (
     add_to_waiting, move_to_hold, mark_as_successful, mark_as_failed, clear_all,
     get_list_by_status, get_all_records, count_records, find_record_by_number,
     set_user_admin, is_admin, get_user_numbers, delete_number
 )
-from aiogram.filters import BaseFilter
 
 class SearchStates(StatesGroup):
     waiting_for_number = State()
@@ -18,11 +18,7 @@ class IsNewChatMemberFilter(BaseFilter):
     async def __call__(self, event: ChatMemberUpdated) -> bool:
         return event.old_chat_member.status == "left" and event.new_chat_member.status == "member"
 
-redis = None
-
-def setup_handlers(dp: Dispatcher, redis_instance):
-    global redis
-    redis = redis_instance
+def setup_handlers(dp: Dispatcher):
     dp.message.register(search_handler, Command(commands=["search"]))
     dp.message.register(number_search_handler, SearchStates.waiting_for_number)
     dp.message.register(add_number_handler, Command(commands=["a"]))
@@ -188,15 +184,6 @@ async def clear_all_handler(message: Message):
     response = await clear_all()
     await message.reply(response)
 
-async def add_user_tags(records, bot):
-    for record in records:
-        try:
-            user = await bot.get_chat(record['user_id'])
-            record['user_tag'] = f"<a href='tg://user?id={user.id}'>{user.full_name}</a>"
-        except:
-            record['user_tag'] = "Пользователь не найден"
-    return records
-
 async def get_waiting_list(message: Message):
     if not await is_admin(message.from_user.id):
         await message.reply("У вас нет доступа к этой команде.")
@@ -207,7 +194,12 @@ async def get_waiting_list(message: Message):
     total_records = await count_records(status="🔵 Ожидание")
     total_pages = (total_records + limit - 1) // limit
     records = await get_list_by_status("🔵 Ожидание", limit=limit, offset=offset)
-    records = await add_user_tags(records, message.bot)
+    for record in records:
+        try:
+            user = await message.bot.get_chat(record['user_id'])
+            record['user_tag'] = f"<a href='tg://user?id={user.id}'>{user.full_name}</a>"
+        except:
+            record['user_tag'] = "Пользователь не найден"
     response = format_list(records, "Ожидание", current_page, total_pages)
     keyboard = build_pagination_keyboard(current_page, total_pages, status="🔵 Ожидание")
     await message.reply(response, reply_markup=keyboard, parse_mode="HTML")
@@ -222,10 +214,9 @@ async def get_hold_list(message: Message):
     total_records = await count_records(status="🟠 Холдинг")
     total_pages = (total_records + limit - 1) // limit
     records = await get_list_by_status("🟠 Холдинг", limit=limit, offset=offset)
-    records = await add_user_tags(records, message.bot)
     response = format_list(records, "Холдинг", current_page, total_pages)
     keyboard = build_pagination_keyboard(current_page, total_pages, status="🟠 Холдинг")
-    await message.reply(response, reply_markup=keyboard, parse_mode="HTML")
+    await message.reply(response, reply_markup=keyboard, parse_mode="Markdown")
 
 async def get_successful_list(message: Message):
     if not await is_admin(message.from_user.id):

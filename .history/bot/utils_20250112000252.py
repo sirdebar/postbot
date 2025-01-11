@@ -16,8 +16,6 @@ def build_pagination_keyboard(current_page, total_pages, status=None):
     return keyboard.as_markup()
 
 def format_hold_duration(hold_duration):
-    if hold_duration is None:
-        return ""
     hours = hold_duration.seconds // 3600
     minutes = (hold_duration.seconds // 60) % 60
     return f"{hours}h {minutes}m"
@@ -28,8 +26,7 @@ def format_list(records, title, current_page, total_pages):
 
     header = f"**{title} (стр. {current_page}/{total_pages}):**\n"
     body = "\n".join([
-        f"{i+1}. {record['user_tag']} {record['number']} {record['status']} [{format_hold_duration(record['hold_duration']) if record['hold_duration'] else ''}]"
-        for i, record in enumerate(records)
+        f"{record['user_tag']} {record['number']} {record['status']} [{format_hold_duration(record['hold_duration']) if record['hold_duration'] else ''}]"
+        for record in records
     ])
     return header + body
-

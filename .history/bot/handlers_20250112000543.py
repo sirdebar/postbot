@@ -4,12 +4,12 @@ from aiogram.filters import Command, CommandObject, ChatMemberUpdatedFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from bot.utils import build_pagination_keyboard, format_list
+from aiogram.filters import BaseFilter
 from bot.database import (
     add_to_waiting, move_to_hold, mark_as_successful, mark_as_failed, clear_all,
     get_list_by_status, get_all_records, count_records, find_record_by_number,
     set_user_admin, is_admin, get_user_numbers, delete_number
 )
-from aiogram.filters import BaseFilter
 
 class SearchStates(StatesGroup):
     waiting_for_number = State()
@@ -18,11 +18,7 @@ class IsNewChatMemberFilter(BaseFilter):
     async def __call__(self, event: ChatMemberUpdated) -> bool:
         return event.old_chat_member.status == "left" and event.new_chat_member.status == "member"
 
-redis = None
-
-def setup_handlers(dp: Dispatcher, redis_instance):
-    global redis
-    redis = redis_instance
+def setup_handlers(dp: Dispatcher):
     dp.message.register(search_handler, Command(commands=["search"]))
     dp.message.register(number_search_handler, SearchStates.waiting_for_number)
     dp.message.register(add_number_handler, Command(commands=["a"]))

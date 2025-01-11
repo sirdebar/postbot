@@ -18,11 +18,9 @@ class IsNewChatMemberFilter(BaseFilter):
     async def __call__(self, event: ChatMemberUpdated) -> bool:
         return event.old_chat_member.status == "left" and event.new_chat_member.status == "member"
 
-redis = None
+def setup_handlers(dp: Dispatcher, redis):
 
-def setup_handlers(dp: Dispatcher, redis_instance):
-    global redis
-    redis = redis_instance
+def setup_handlers(dp: Dispatcher):
     dp.message.register(search_handler, Command(commands=["search"]))
     dp.message.register(number_search_handler, SearchStates.waiting_for_number)
     dp.message.register(add_number_handler, Command(commands=["a"]))

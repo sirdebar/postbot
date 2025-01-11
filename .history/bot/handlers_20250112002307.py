@@ -9,7 +9,6 @@ from bot.database import (
     get_list_by_status, get_all_records, count_records, find_record_by_number,
     set_user_admin, is_admin, get_user_numbers, delete_number
 )
-from aiogram.filters import BaseFilter
 
 class SearchStates(StatesGroup):
     waiting_for_number = State()
@@ -18,11 +17,9 @@ class IsNewChatMemberFilter(BaseFilter):
     async def __call__(self, event: ChatMemberUpdated) -> bool:
         return event.old_chat_member.status == "left" and event.new_chat_member.status == "member"
 
-redis = None
+def setup_handlers(dp: Dispatcher, redis):
 
-def setup_handlers(dp: Dispatcher, redis_instance):
-    global redis
-    redis = redis_instance
+def setup_handlers(dp: Dispatcher):
     dp.message.register(search_handler, Command(commands=["search"]))
     dp.message.register(number_search_handler, SearchStates.waiting_for_number)
     dp.message.register(add_number_handler, Command(commands=["a"]))

@@ -33,3 +33,14 @@ def format_list(records, title, current_page, total_pages):
     ])
     return header + body
 
+# bot/utils.py
+from redis.asyncio import Redis
+
+redis = None
+
+def set_redis(r):
+    global redis
+    redis = r
+
+def get_redis():
+    return redis

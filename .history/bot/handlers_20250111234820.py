@@ -4,12 +4,12 @@ from aiogram.filters import Command, CommandObject, ChatMemberUpdatedFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from bot.utils import build_pagination_keyboard, format_list
+from aiogram.filters import BaseFilter
 from bot.database import (
     add_to_waiting, move_to_hold, mark_as_successful, mark_as_failed, clear_all,
     get_list_by_status, get_all_records, count_records, find_record_by_number,
     set_user_admin, is_admin, get_user_numbers, delete_number
 )
-from aiogram.filters import BaseFilter
 
 class SearchStates(StatesGroup):
     waiting_for_number = State()
@@ -18,11 +18,7 @@ class IsNewChatMemberFilter(BaseFilter):
     async def __call__(self, event: ChatMemberUpdated) -> bool:
         return event.old_chat_member.status == "left" and event.new_chat_member.status == "member"
 
-redis = None
-
-def setup_handlers(dp: Dispatcher, redis_instance):
-    global redis
-    redis = redis_instance
+def setup_handlers(dp: Dispatcher):
     dp.message.register(search_handler, Command(commands=["search"]))
     dp.message.register(number_search_handler, SearchStates.waiting_for_number)
     dp.message.register(add_number_handler, Command(commands=["a"]))
@@ -79,7 +75,6 @@ async def search_handler(callback: CallbackQuery, state: FSMContext):
     await callback.message.reply("Введите номер для поиска:")
     await state.set_state(SearchStates.waiting_for_number)
 
-
 async def number_search_handler(message: Message, state: FSMContext):
     number = message.text.strip()
     record = await find_record_by_number(number)
@@ -95,7 +90,7 @@ async def number_search_handler(message: Message, state: FSMContext):
             f"Номер: {record['number']}\n"
             f"Пользователь: {user_tag}\n"
             f"Статус: {record['status']}\n"
-            f"Дата: {record['timestamp'].strftime('%Y-%m-%d %H:%M')}"
+            f"Дата: {record['timestamp']}"
         )
     else:
         response = f"Номер {number} не найден."
@@ -144,16 +139,8 @@ async def hold_number_handler(message: Message):
         return
 
     number = args[1]
-    # Get global hold duration from Redis
-    hold_duration_str = await redis.get("global_hold_duration")
-    if hold_duration_str:
-        hold_duration = int(hold_duration_str)
-        hold_duration_timedelta = timedelta(hours=hold_duration)
-    else:
-        hold_duration_timedelta = None
-    response = await move_to_hold(number, hold_duration=hold_duration_timedelta)
+    response = await move_to_hold(number)
     await message.reply(response)
-
 
 async def successful_number_handler(message: Message):
     if not await is_admin(message.from_user.id):
@@ -188,15 +175,6 @@ async def clear_all_handler(message: Message):
     response = await clear_all()
     await message.reply(response)
 
-async def add_user_tags(records, bot):
-    for record in records:
-        try:
-            user = await bot.get_chat(record['user_id'])
-            record['user_tag'] = f"<a href='tg://user?id={user.id}'>{user.full_name}</a>"
-        except:
-            record['user_tag'] = "Пользователь не найден"
-    return records
-
 async def get_waiting_list(message: Message):
     if not await is_admin(message.from_user.id):
         await message.reply("У вас нет доступа к этой команде.")
@@ -207,10 +185,9 @@ async def get_waiting_list(message: Message):
     total_records = await count_records(status="🔵 Ожидание")
     total_pages = (total_records + limit - 1) // limit
     records = await get_list_by_status("🔵 Ожидание", limit=limit, offset=offset)
-    records = await add_user_tags(records, message.bot)
     response = format_list(records, "Ожидание", current_page, total_pages)
     keyboard = build_pagination_keyboard(current_page, total_pages, status="🔵 Ожидание")
-    await message.reply(response, reply_markup=keyboard, parse_mode="HTML")
+    await message.reply(response, reply_markup=keyboard, parse_mode="Markdown")
 
 async def get_hold_list(message: Message):
     if not await is_admin(message.from_user.id):
@@ -222,10 +199,9 @@ async def get_hold_list(message: Message):
     total_records = await count_records(status="🟠 Холдинг")
     total_pages = (total_records + limit - 1) // limit
     records = await get_list_by_status("🟠 Холдинг", limit=limit, offset=offset)
-    records = await add_user_tags(records, message.bot)
     response = format_list(records, "Холдинг", current_page, total_pages)
     keyboard = build_pagination_keyboard(current_page, total_pages, status="🟠 Холдинг")
-    await message.reply(response, reply_markup=keyboard, parse_mode="HTML")
+    await message.reply(response, reply_markup=keyboard, parse_mode="Markdown")
 
 async def get_successful_list(message: Message):
     if not await is_admin(message.from_user.id):
@@ -237,10 +213,9 @@ async def get_successful_list(message: Message):
     total_records = await count_records(status="🟢 Успешно")
     total_pages = (total_records + limit - 1) // limit
     records = await get_list_by_status("🟢 Успешно", limit=limit, offset=offset)
-    records = await add_user_tags(records, message.bot)
     response = format_list(records, "Успешно", current_page, total_pages)
     keyboard = build_pagination_keyboard(current_page, total_pages, status="🟢 Успешно")
-    await message.reply(response, reply_markup=keyboard, parse_mode="HTML")
+    await message.reply(response, reply_markup=keyboard, parse_mode="Markdown")
 
 async def get_failed_list(message: Message):
     if not await is_admin(message.from_user.id):
@@ -252,10 +227,9 @@ async def get_failed_list(message: Message):
     total_records = await count_records(status="🔴 Слетел")
     total_pages = (total_records + limit - 1) // limit
     records = await get_list_by_status("🔴 Слетел", limit=limit, offset=offset)
-    records = await add_user_tags(records, message.bot)
     response = format_list(records, "Слетели", current_page, total_pages)
     keyboard = build_pagination_keyboard(current_page, total_pages, status="🔴 Слетел")
-    await message.reply(response, reply_markup=keyboard, parse_mode="HTML")
+    await message.reply(response, reply_markup=keyboard, parse_mode="Markdown")
 
 async def help_handler(message: Message):
     if await is_admin(message.from_user.id):
@@ -295,50 +269,30 @@ async def admin_handler(message: Message, command: CommandObject):
         await message.reply("У вас нет доступа к этой команде.")
         return
     if not command.args:
-        await message.reply("Укажите user_id или username пользователя! Пример: /admin 123456789 или /admin @username")
+        await message.reply("Укажите user_id пользователя! Пример: /admin 123456789")
         return
-    user_input = command.args
-    if user_input.startswith("@"):
-        # Fetch user by username
-        try:
-            user = await message.bot.get_chat(user_input)
-            user_id = user.id
-        except Exception as e:
-            await message.reply(f"Пользователь {user_input} не найден.")
-            return
-    else:
-        try:
-            user_id = int(user_input)
-        except ValueError:
-            await message.reply("Неверный формат user_id или username.")
-            return
+    try:
+        user_id = int(command.args)
+    except ValueError:
+        await message.reply("Неверный формат user_id.")
+        return
     await set_user_admin(user_id, is_admin=True)
-    await message.reply(f"Пользователь {user_input} назначен администратором.")
+    await message.reply(f"Пользователь с user_id {user_id} назначен администратором.")
 
 async def deladmin_handler(message: Message, command: CommandObject):
     if not await is_admin(message.from_user.id):
         await message.reply("У вас нет доступа к этой команде.")
         return
     if not command.args:
-        await message.reply("Укажите user_id или username пользователя! Пример: /deladmin 123456789 или /deladmin @username")
+        await message.reply("Укажите user_id пользователя! Пример: /deladmin 123456789")
         return
-    user_input = command.args
-    if user_input.startswith("@"):
-        # Fetch user by username
-        try:
-            user = await message.bot.get_chat(user_input)
-            user_id = user.id
-        except Exception as e:
-            await message.reply(f"Пользователь {user_input} не найден.")
-            return
-    else:
-        try:
-            user_id = int(user_input)
-        except ValueError:
-            await message.reply("Неверный формат user_id или username.")
-            return
+    try:
+        user_id = int(command.args)
+    except ValueError:
+        await message.reply("Неверный формат user_id.")
+        return
     await set_user_admin(user_id, is_admin=False)
-    await message.reply(f"Пользователь {user_input} лишен админских прав.")
+    await message.reply(f"Пользователь с user_id {user_id} лишен админских прав.")
 
 async def my_handler(message: Message, command: CommandObject):
     target_user = message.from_user
@@ -402,13 +356,8 @@ async def set_hold_duration_handler(message: Message, command: CommandObject):
     except ValueError:
         await message.reply("Время должно быть неотрицательным числом.")
         return
-    if hours == 0:
-        # Set indefinite hold
-        await redis.delete("global_hold_duration")
-        hold_duration = None
-    else:
-        hold_duration = hours
-        await redis.set("global_hold_duration", hold_duration)
+    # Set hold duration for new numbers
+    # This would require updating the bot logic to use this duration when moving to hold
     await message.reply(f"Время холда установлено на {hours} часов.")
 
 async def delete_number_handler(message: Message, command: CommandObject):

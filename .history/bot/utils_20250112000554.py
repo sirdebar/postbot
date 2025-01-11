@@ -28,8 +28,7 @@ def format_list(records, title, current_page, total_pages):
 
     header = f"**{title} (стр. {current_page}/{total_pages}):**\n"
     body = "\n".join([
-        f"{i+1}. {record['user_tag']} {record['number']} {record['status']} [{format_hold_duration(record['hold_duration']) if record['hold_duration'] else ''}]"
-        for i, record in enumerate(records)
+        f"{record['user_tag']} {record['number']} {record['status']} [{format_hold_duration(record['hold_duration']) if record['hold_duration'] else ''}]"
+        for record in records
     ])
     return header + body
-

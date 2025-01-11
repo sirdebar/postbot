@@ -2,7 +2,8 @@ import asyncpg
 import logging
 from dotenv import load_dotenv
 import os
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
+import json
 
 load_dotenv()
 
@@ -64,7 +65,7 @@ async def delete_expired_records():
     pool = await get_pool()
     try:
         async with pool.acquire() as conn:
-            expiration_time = datetime.now(timezone.utc) - timedelta(days=1)
+            expiration_time = datetime.now() - timedelta(days=1)
             await conn.execute(""" 
                 DELETE FROM numbers WHERE timestamp < $1
             """, expiration_time)
@@ -87,21 +88,15 @@ async def get_all_records(limit=10, offset=0):
         logger.error(f"Error fetching records: {e}")
         return []
 
-async def count_records(user_id=None, status=None):
+async def count_records(status=None):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        query = "SELECT COUNT(*) FROM numbers"
-        args = []
-        if user_id and status:
-            query += " WHERE user_id = $1 AND status = $2"
-            args = [user_id, status]
-        elif user_id:
-            query += " WHERE user_id = $1"
-            args = [user_id]
-        elif status:
-            query += " WHERE status = $1"
-            args = [status]
-        count = await conn.fetchval(query, *args)
+        if status:
+            count = await conn.fetchval(""" 
+                SELECT COUNT(*) FROM numbers WHERE status = $1 
+            """, status)
+        else:
+            count = await conn.fetchval("SELECT COUNT(*) FROM numbers")
     return count if count else 0
 
 async def find_record_by_number(number):
@@ -126,7 +121,7 @@ async def add_to_waiting(user_id, number):
             await conn.execute(""" 
                 INSERT INTO numbers (number, user_id, status, timestamp) 
                 VALUES ($1, $2, $3, $4) 
-            """, number, user_id, "🔵 Ожидание", datetime.now(timezone.utc))
+            """, number, user_id, "🔵 Ожидание", datetime.now())
         return f"Номер {number} добавлен в список ожидания."
     except Exception as e:
         logger.error(f"Error adding to waiting list: {e}")
@@ -152,7 +147,7 @@ async def move_to_hold(number, hold_duration=None):
                 UPDATE numbers 
                 SET status = $2, hold_start = $3, hold_end = $4, hold_duration = $5 
                 WHERE number = $1 AND status = $6 
-            """, number, "🟠 Холдинг", datetime.now(timezone.utc), datetime.now(timezone.utc) + hold_duration if hold_duration else None, hold_duration, "🔵 Ожидание")
+            """, number, "🟠 Холдинг", datetime.now(), datetime.now() + hold_duration if hold_duration else None, hold_duration, "🔵 Ожидание")
         return f"Номер {number} взят в холд."
     except Exception as e:
         logger.error(f"Error moving to hold: {e}")
@@ -164,14 +159,14 @@ async def mark_as_successful(number):
         async with pool.acquire() as conn:
             hold_start = await conn.fetchval("SELECT hold_start FROM numbers WHERE number = $1", number)
             if hold_start:
-                hold_duration = datetime.now(timezone.utc) - hold_start
+                hold_duration = datetime.now() - hold_start
             else:
                 hold_duration = None
             await conn.execute(""" 
                 UPDATE numbers 
                 SET status = $2, hold_end = $3, hold_duration = $4 
                 WHERE number = $1 AND status = $5 
-            """, number, "🟢 Успешно", datetime.now(timezone.utc), hold_duration, "🟠 Холдинг")
+            """, number, "🟢 Успешно", datetime.now(), hold_duration, "🟠 Холдинг")
         return f"Номер {number} успешно завершил холд."
     except Exception as e:
         logger.error(f"Error marking as successful: {e}")
@@ -183,14 +178,14 @@ async def mark_as_failed(number):
         async with pool.acquire() as conn:
             hold_start = await conn.fetchval("SELECT hold_start FROM numbers WHERE number = $1", number)
             if hold_start:
-                hold_duration = datetime.now(timezone.utc) - hold_start
+                hold_duration = datetime.now() - hold_start
             else:
                 hold_duration = None
             await conn.execute(""" 
                 UPDATE numbers 
                 SET status = $2, hold_end = $3, hold_duration = $4 
                 WHERE number = $1 AND status = $5 
-            """, number, "🔴 Слетел", datetime.now(timezone.utc), hold_duration, "🟠 Холдинг")
+            """, number, "🔴 Слетел", datetime.now(), hold_duration, "🟠 Холдинг")
         return f"Номер {number} помечен как слетевший."
     except Exception as e:
         logger.error(f"Error marking as failed: {e}")

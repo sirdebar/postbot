@@ -2,7 +2,7 @@ import asyncpg
 import logging
 from dotenv import load_dotenv
 import os
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 load_dotenv()
 
