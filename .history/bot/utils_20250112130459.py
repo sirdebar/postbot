@@ -1,13 +1,6 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 import pytz
 
-def convert_utc_to_msk(utc_time):
-    """
-    Преобразует время из UTC в московское время (MSK).
-    """
-    msk_timezone = pytz.timezone('Europe/Moscow')
-    return utc_time.astimezone(msk_timezone)
-
 # utils.py
 def build_pagination_keyboard(current_page, total_pages, status=None):
     keyboard = InlineKeyboardBuilder()

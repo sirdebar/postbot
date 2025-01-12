@@ -1,12 +1,4 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-import pytz
-
-def convert_utc_to_msk(utc_time):
-    """
-    Преобразует время из UTC в московское время (MSK).
-    """
-    msk_timezone = pytz.timezone('Europe/Moscow')
-    return utc_time.astimezone(msk_timezone)
 
 # utils.py
 def build_pagination_keyboard(current_page, total_pages, status=None):
@@ -30,13 +22,9 @@ def build_pagination_keyboard(current_page, total_pages, status=None):
 def format_hold_duration(hold_duration):
     if hold_duration is None:
         return ""
-    days = hold_duration.days
     hours = hold_duration.seconds // 3600
     minutes = (hold_duration.seconds // 60) % 60
-    if days > 0:
-        return f"{days}d {hours}h {minutes}m"
-    else:
-        return f"{hours}h {minutes}m"
+    return f"{hours}h {minutes}m"
 
 def format_list(records, title, current_page, total_pages):
     if not records:

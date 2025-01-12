@@ -17,14 +17,11 @@ logger = logging.getLogger(__name__)
 
 _pool = None
 
+# database.py
 async def init_db():
-    """
-    Инициализирует базу данных, создает таблицы и добавляет первого админа.
-    """
     try:
         pool = await get_pool()
         async with pool.acquire() as conn:
-            # Создаем таблицы, если они еще не существуют
             await conn.execute(""" 
                 CREATE TABLE IF NOT EXISTS users (
                     user_id BIGINT PRIMARY KEY,
@@ -45,16 +42,11 @@ async def init_db():
             """)
             await conn.execute("CREATE INDEX IF NOT EXISTS idx_status ON numbers (status)")
             await conn.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON numbers (timestamp)")
-        
-        # Добавляем первого админа
-        await add_first_admin()
-        
-        logger.info("Database initialization complete.")
+        logger.info("Table setup complete.")
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
         raise
 
-# database.py
 async def get_pool():
     global _pool
     if _pool is None:
@@ -72,35 +64,6 @@ async def get_pool():
             logger.error(f"Failed to create connection pool: {e}")
             raise RuntimeError("Failed to create database connection pool") from e
     return _pool
-
-async def add_first_admin():
-    """
-    Добавляет первого админа в таблицу users, если его еще нет.
-    """
-    try:
-        pool = await get_pool()
-        async with pool.acquire() as conn:
-            # Проверяем, есть ли уже админ в таблице
-            admin_exists = await conn.fetchval("""
-                SELECT EXISTS (
-                    SELECT 1 FROM users WHERE is_admin = TRUE
-                )
-            """)
-            
-            if not admin_exists:
-                # Добавляем первого админа
-                first_admin_id = 1083294848  # Замените на реальный ID первого админа
-                await conn.execute("""
-                    INSERT INTO users (user_id, is_admin)
-                    VALUES ($1, $2)
-                    ON CONFLICT (user_id) DO UPDATE SET is_admin = $2
-                """, first_admin_id, True)
-                logger.info(f"First admin with user_id={first_admin_id} added.")
-            else:
-                logger.info("Admin already exists in the database.")
-    except Exception as e:
-        logger.error(f"Error adding first admin: {e}")
-        raise
 
 async def delete_expired_records():
     pool = await get_pool()

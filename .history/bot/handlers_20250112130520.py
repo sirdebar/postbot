@@ -79,6 +79,7 @@ async def search_handler(callback: CallbackQuery, state: FSMContext):
     await callback.message.reply("Введите номер для поиска:")
     await state.set_state(SearchStates.waiting_for_number)
 
+
 async def number_search_handler(message: Message, state: FSMContext):
     number = message.text.strip()
     record = await find_record_by_number(number)
@@ -88,17 +89,13 @@ async def number_search_handler(message: Message, state: FSMContext):
             user_tag = f"<a href='tg://user?id={user.id}'>{user.full_name}</a>"
         except:
             user_tag = "Пользователь не найден"
-
-        # Преобразуем время из UTC в MSK
-        msk_time = convert_utc_to_msk(record['timestamp'])
-
         response = (
             f"Найден номер:\n"
             f"ID: {record['id']}\n"
             f"Номер: {record['number']}\n"
             f"Пользователь: {user_tag}\n"
             f"Статус: {record['status']}\n"
-            f"Дата: {msk_time.strftime('%Y-%m-%d %H:%M')}"  # Отображаем время по MSK
+            f"Дата: {record['timestamp'].strftime('%Y-%m-%d %H:%M')}"
         )
     else:
         response = f"Номер {number} не найден."

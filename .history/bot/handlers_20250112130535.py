@@ -79,6 +79,7 @@ async def search_handler(callback: CallbackQuery, state: FSMContext):
     await callback.message.reply("Введите номер для поиска:")
     await state.set_state(SearchStates.waiting_for_number)
 
+
 async def number_search_handler(message: Message, state: FSMContext):
     number = message.text.strip()
     record = await find_record_by_number(number)

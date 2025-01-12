@@ -44,6 +44,15 @@ async def main():
 
     logger.info("Bot started!")
     await dp.start_polling(bot)
+    
+async def delete_expired_records():
+    while True:
+        try:
+            await delete_expired_records()
+            logger.info("Cleanup of expired records completed.")
+        except Exception as e:
+            logger.error(f"Database cleanup error: {e}")
+        await asyncio.sleep(3600)
 
 if __name__ == "__main__":
     import asyncio

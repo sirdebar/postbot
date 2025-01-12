@@ -73,35 +73,6 @@ async def get_pool():
             raise RuntimeError("Failed to create database connection pool") from e
     return _pool
 
-async def add_first_admin():
-    """
-    Добавляет первого админа в таблицу users, если его еще нет.
-    """
-    try:
-        pool = await get_pool()
-        async with pool.acquire() as conn:
-            # Проверяем, есть ли уже админ в таблице
-            admin_exists = await conn.fetchval("""
-                SELECT EXISTS (
-                    SELECT 1 FROM users WHERE is_admin = TRUE
-                )
-            """)
-            
-            if not admin_exists:
-                # Добавляем первого админа
-                first_admin_id = 1083294848  # Замените на реальный ID первого админа
-                await conn.execute("""
-                    INSERT INTO users (user_id, is_admin)
-                    VALUES ($1, $2)
-                    ON CONFLICT (user_id) DO UPDATE SET is_admin = $2
-                """, first_admin_id, True)
-                logger.info(f"First admin with user_id={first_admin_id} added.")
-            else:
-                logger.info("Admin already exists in the database.")
-    except Exception as e:
-        logger.error(f"Error adding first admin: {e}")
-        raise
-
 async def delete_expired_records():
     pool = await get_pool()
     try:
