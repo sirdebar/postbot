@@ -58,10 +58,12 @@ async def paginate_list(callback: CallbackQuery):
 
     if status == "all":
         records = await get_all_records(limit=limit, offset=offset)
+        records = await add_user_tags(records, callback.bot)  # Added this line
         total_records = await count_records()
         title = "Общий список"
     else:
         records = await get_list_by_status(status, limit=limit, offset=offset)
+        records = await add_user_tags(records, callback.bot)  # Added this line
         total_records = await count_records(status=status)
         title = f"Список по статусу {status}"
 
@@ -72,8 +74,8 @@ async def paginate_list(callback: CallbackQuery):
     else:
         response = format_list(records, title, current_page, total_pages)
 
-    keyboard = build_pagination_keyboard(current_page, total_pages, status)
-    await callback.message.edit_text(response, reply_markup=keyboard, parse_mode="Markdown")
+    keyboard = build_pagination_keyboard(current_page, total_pages, status=status)
+    await callback.message.edit_text(response, reply_markup=keyboard, parse_mode="HTML")
 
 async def search_handler(callback: CallbackQuery, state: FSMContext):
     await callback.message.reply("Введите номер для поиска:")
@@ -126,6 +128,7 @@ async def list_all_handler(message: Message):
     offset = 0
     current_page = 1
     records = await get_all_records(limit=limit, offset=offset)
+    records = await add_user_tags(records, message.bot)  # Added this line
     total_records = await count_records()
     total_pages = (total_records + limit - 1) // limit
 
@@ -196,7 +199,8 @@ async def add_user_tags(records, bot):
         try:
             user = await bot.get_chat(record['user_id'])
             record['user_tag'] = f"<a href='tg://user?id={user.id}'>{user.full_name}</a>"
-        except:
+        except Exception as e:
+            logger.error(f"Error fetching user {record['user_id']}: {e}")
             record['user_tag'] = "Пользователь не найден"
     return records
 
@@ -225,7 +229,7 @@ async def get_hold_list(message: Message):
     total_records = await count_records(status="🟠 Холдинг")
     total_pages = (total_records + limit - 1) // limit
     records = await get_list_by_status("🟠 Холдинг", limit=limit, offset=offset)
-    records = await add_user_tags(records, message.bot)
+    records = await add_user_tags(records, message.bot)  # Ensure this is present
     response = format_list(records, "Холдинг", current_page, total_pages)
     keyboard = build_pagination_keyboard(current_page, total_pages, status="🟠 Холдинг")
     await message.reply(response, reply_markup=keyboard, parse_mode="HTML")

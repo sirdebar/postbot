@@ -45,6 +45,7 @@ async def init_db():
             """)
             await conn.execute("CREATE INDEX IF NOT EXISTS idx_status ON numbers (status)")
             await conn.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON numbers (timestamp)")
+            await conn.execute("CREATE INDEX IF NOT EXISTS idx_number ON numbers (number)")
         
         # Добавляем первого админа
         await add_first_admin()
@@ -114,20 +115,25 @@ async def delete_expired_records():
     except Exception as e:
         logger.error(f"Error deleting records: {e}")
 
-async def get_all_records(limit=10, offset=0):
-    try:
-        pool = await get_pool()
-        async with pool.acquire() as conn:
-            records = await conn.fetch(""" 
+async def get_all_records(limit=10, last_id=None):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        if last_id:
+            records = await conn.fetch("""
                 SELECT id, number, user_id, status, timestamp, hold_start, hold_end, hold_duration 
                 FROM numbers 
-                ORDER BY timestamp ASC 
-                LIMIT $1 OFFSET $2 
-            """, limit, offset)
-        return [dict(record) for record in records]
-    except Exception as e:
-        logger.error(f"Error fetching records: {e}")
-        return []
+                WHERE id > $1 
+                ORDER BY id 
+                LIMIT $2
+            """, last_id, limit)
+        else:
+            records = await conn.fetch("""
+                SELECT id, number, user_id, status, timestamp, hold_start, hold_end, hold_duration 
+                FROM numbers 
+                ORDER BY id 
+                LIMIT $2
+            """, limit)
+    return [dict(record) for record in records]
 
 async def count_records(user_id=None, status=None):
     pool = await get_pool()

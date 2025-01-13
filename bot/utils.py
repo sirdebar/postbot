@@ -11,11 +11,14 @@ def convert_utc_to_msk(utc_time):
 # utils.py
 def build_pagination_keyboard(current_page, total_pages, status=None):
     keyboard = InlineKeyboardBuilder()
-    callback_base = f"page:{status}:" if status else "page:all:"
-
+    if status:
+        callback_base = f"page:{status}:"
+    else:
+        callback_base = "page:all:"
+    
     if total_pages == 0:
         return keyboard.as_markup()
-
+    
     if current_page > 1:
         keyboard.button(text="<", callback_data=f"{callback_base}{current_page - 1}")
     if current_page < total_pages:
@@ -24,7 +27,7 @@ def build_pagination_keyboard(current_page, total_pages, status=None):
         keyboard.button(text="Найти", callback_data=f"search:{status}")
     else:
         keyboard.button(text="Найти", callback_data="search:all")
-
+    
     return keyboard.as_markup()
 
 def format_hold_duration(hold_duration):
@@ -42,10 +45,9 @@ def format_list(records, title, current_page, total_pages):
     if not records:
         return f"Список {title} пуст."
 
-    header = f"**{title} (стр. {current_page}/{total_pages}):**\n"
+    header = f"<b>{title} (стр. {current_page}/{total_pages}):</b>\n"
     body = "\n".join([
-        f"{i+1}. {record['user_tag']} {record['number']} {record['status']} [{format_hold_duration(record['hold_duration']) if record['hold_duration'] else ''}]"
+        f"{i+1}. {record['user_tag']} {record['number']} - {record['status']} [{format_hold_duration(record['hold_duration']) if record['hold_duration'] else ''}]"
         for i, record in enumerate(records)
     ])
     return header + body
-
