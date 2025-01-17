@@ -7,6 +7,10 @@ from redis.asyncio import Redis
 import os
 from dotenv import load_dotenv
 import logging
+from bot.database import (
+    mark_as_successful, get_pool
+)
+from datetime import datetime, timezone, timedelta
 
 load_dotenv()
 
@@ -34,14 +38,42 @@ async def periodic_cleanup():
             logger.error(f"Database cleanup error: {e}")
         await asyncio.sleep(3600)
 
+async def check_holds():
+    while True:
+        try:
+            hold_duration_str = await redis.get("global_hold_duration")
+            if hold_duration_str:
+                hold_duration = int(hold_duration_str)
+            else:
+                hold_duration = None
+            now = datetime.now(timezone.utc)
+            pool = await get_pool()
+            async with pool.acquire() as conn:
+                if hold_duration:
+                    records = await conn.fetch("""
+                        SELECT id, number, hold_set_by, chat_id
+                        FROM numbers
+                        WHERE status = '🟠 Холдинг'
+                        AND hold_start + hold_duration <= $1
+                    """, now)
+                else:
+                    records = await conn.fetch("""
+                        SELECT id, number, hold_set_by, chat_id
+                        FROM numbers
+                        WHERE status = '🟠 Холдинг'
+                        AND hold_start IS NOT NULL
+                    """)
+                for record in records:
+                    await mark_as_successful(record['number'], record['chat_id'], bot)
+        except Exception as e:
+            logger.error(f"Error checking holds: {e}")
+        await asyncio.sleep(60)  # Check every minute
+
 async def main():
     await init_db()
-
-    # Start background task for periodic cleanup
     asyncio.create_task(periodic_cleanup())
-
+    asyncio.create_task(check_holds())
     setup_handlers(dp, redis)
-
     logger.info("Bot started!")
     await dp.start_polling(bot)
 

@@ -92,6 +92,7 @@ async def add_first_admin():
             """)
             
             if not admin_exists:
+                # Добавляем первого админа
                 first_admin_id = 7699005037
                 await conn.execute("""
                     INSERT INTO users (user_id, is_admin)

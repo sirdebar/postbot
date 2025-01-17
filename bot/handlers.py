@@ -5,11 +5,12 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from bot.utils import build_pagination_keyboard, format_list, convert_utc_to_msk
 from bot.database import (
-    add_to_waiting, move_to_hold, mark_as_successful, mark_as_failed, clear_all,
+    add_to_waiting, move_to_hold, mark_as_successful,  clear_all,
     get_list_by_status, get_all_records, count_records, find_record_by_number,
-    set_user_admin, is_admin, get_user_numbers, delete_number
+    set_user_admin, is_admin, get_user_numbers, delete_number, mark_as_failed
 )
 from aiogram.filters import BaseFilter
+from datetime import timedelta
 
 class SearchStates(StatesGroup):
     waiting_for_number = State()
@@ -108,16 +109,12 @@ async def number_search_handler(message: Message, state: FSMContext):
     await state.clear()
 
 async def add_number_handler(message: Message):
-    if not await is_admin(message.from_user.id):
-        await message.reply("У вас нет доступа к этой команде.")
-        return
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
         await message.reply("Укажите номер! Пример: /a 123456789")
         return
-
     number = args[1]
-    response = await add_to_waiting(message.from_user.id, number)
+    response = await add_to_waiting(message.from_user.id, number, message.chat.id)
     await message.reply(response)
 
 async def list_all_handler(message: Message):
@@ -148,16 +145,16 @@ async def hold_number_handler(message: Message):
     if len(args) < 2:
         await message.reply("Укажите номер! Пример: /c 123456789")
         return
-
     number = args[1]
+
     # Get global hold duration from Redis
     hold_duration_str = await redis.get("global_hold_duration")
     if hold_duration_str:
-        hold_duration = int(hold_duration_str)
-        hold_duration_timedelta = timedelta(hours=hold_duration)
+        hold_duration = int(hold_duration_str)  # Преобразуем строку в целое число
+        hold_duration_timedelta = timedelta(seconds=hold_duration)  # Используем seconds
     else:
         hold_duration_timedelta = None
-    response = await move_to_hold(number, hold_duration=hold_duration_timedelta)
+    response = await move_to_hold(number, hold_duration=hold_duration_timedelta, hold_set_by=message.from_user.id, chat_id=message.chat.id)
     await message.reply(response)
 
 
@@ -395,28 +392,32 @@ async def stata_handler(message: Message):
     )
     await message.reply(response)
 
+# handlers.py
 async def set_hold_duration_handler(message: Message, command: CommandObject):
     if not await is_admin(message.from_user.id):
         await message.reply("У вас нет доступа к этой команде.")
         return
     if not command.args:
-        await message.reply("Укажите время в часах! Пример: /h 3")
+        await message.reply("Укажите время! Пример: /h 1h или /h 0 для бессрочного холда.")
         return
-    try:
-        hours = int(command.args)
-        if hours < 0:
-            raise ValueError
-    except ValueError:
-        await message.reply("Время должно быть неотрицательным числом.")
-        return
-    if hours == 0:
-        # Set indefinite hold
+    time_str = command.args
+    if time_str == "0":
         await redis.delete("global_hold_duration")
-        hold_duration = None
-    else:
-        hold_duration = hours
-        await redis.set("global_hold_duration", hold_duration)
-    await message.reply(f"Время холда установлено на {hours} часов.")
+        await message.reply("Холд установлен на бессрочно.")
+        return
+    import re
+    match = re.match(r'^(\d+)(h|m)$', time_str)
+    if not match:
+        await message.reply("Неверный формат времени. Используйте числа с суффиксами h (часы) или m (минуты).")
+        return
+    value, unit = match.groups()
+    value = int(value)
+    if unit == 'h':
+        hold_duration = value * 3600
+    elif unit == 'm':
+        hold_duration = value * 60
+    await redis.set("global_hold_duration", hold_duration)
+    await message.reply(f"Время холда установлено на {time_str}.")
 
 async def delete_number_handler(message: Message, command: CommandObject):
     if not await is_admin(message.from_user.id):

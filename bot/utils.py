@@ -44,10 +44,11 @@ def format_hold_duration(hold_duration):
 def format_list(records, title, current_page, total_pages):
     if not records:
         return f"Список {title} пуст."
-
+    
     header = f"<b>{title} (стр. {current_page}/{total_pages}):</b>\n"
     body = "\n".join([
-        f"{i+1}. {record['user_tag']} {record['number']} - {record['status']} [{format_hold_duration(record['hold_duration']) if record['hold_duration'] else ''}]"
+        f"{i+1}. {record['user_tag']} {record['number']} - {record['status']} [{'{:.0f}d {:.0f}h {:.0f}m'.format(record['elapsed_time'].days, record['elapsed_time'].seconds // 3600, (record['elapsed_time'].seconds % 3600) // 60)}]" if record['elapsed_time'] else
+        f"{i+1}. {record['user_tag']} {record['number']} - {record['status']} [0d 0h 0m]"
         for i, record in enumerate(records)
     ])
     return header + body
